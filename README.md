@@ -76,7 +76,8 @@ and nothing is cut off.
 ## Files
 
 - `main.py` — the poster publisher (Python standard library only)
-- `entry.png` — the rendered poster (1024×1024)
+- `entry.png` — the rendered poster (1024×1024, 138,583 bytes,
+  SHA-256 `fb702c04b787558857246fa119da37c87106740d0ef61f2d926511e3d3e386fe`)
 - `LICENSE` — MIT
 
 ## License

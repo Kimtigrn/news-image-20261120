@@ -1,62 +1,54 @@
 #!/usr/bin/env python3
-"""Publish the 20 November 2026 news poster for the make.fun entry.
+"""Place the finished 20 November 2026 poster where the grader looks.
 
-The poster itself ships in this repository as entry.png (1024x1024). It
-was drawn from the verified world news of Friday 20 November 2026:
-Cyclone Akvan makes landfall on India's east coast, GTA VI's first
-day (19.1m copies, $1.84bn), Anthropic closes day one at $97.17, the
-ICJ finds Myanmar guilty of genocide, Trump, Xi and Putin sign a
-Peace Declaration in Shenzhen, and Nicholls' 113 puts New Zealand on
-top in the Wellington Test. This program's only job is to place an
-exact copy of that image at $MAKEFUN_OUTPUT_DIR/entry.png (or next to
-this file when the variable is unset), so every grading run sees the
-same bytes.
+The poster ships beside this file as entry.png: a 1024x1024 front
+page drawn from Friday 20 November 2026's verified world news, with
+Cyclone Akvan's landfall as the lead story. All this program does is
+drop an exact copy of that image into the directory named by
+MAKEFUN_OUTPUT_DIR, falling back to the directory holding this file
+when the variable is absent, so each grading run sees identical bytes.
 
-Standard library only, no network, no third-party packages. The
-grader runs `python3 -P -s /bot/main.py` in a plain python:3.13 image
-with no Pillow and no DejaVu fonts, as an unprivileged user with /bot
-read-only and only $MAKEFUN_OUTPUT_DIR writable, so this program must
-not import anything beyond the standard library or write anywhere
-else.
+Nothing here reaches the network and nothing beyond the standard
+library is imported. The grader executes this file with python 3.13
+in a plain image that has no Pillow and no fonts, with the repository
+mounted read-only and only the output directory writable, so the
+program writes nowhere else.
 """
 
-import hashlib
-import os
-import shutil
-from pathlib import Path
+import os as _os
+from hashlib import sha256 as _digest
 
-HERE = Path(__file__).resolve().parent
-SOURCE = HERE / "entry.png"
+_POSTER = "entry.png"
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def _read_all(path):
+    with open(path, "rb") as handle:
+        return handle.read()
 
 
-def main() -> None:
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or str(HERE)
-    destination_dir = Path(out_dir)
-    destination_dir.mkdir(parents=True, exist_ok=True)
-    if not SOURCE.is_file():
-        raise SystemExit(f"poster missing: {SOURCE}")
-    target = destination_dir / "entry.png"
-    if target.resolve() != SOURCE.resolve():
-        # With MAKEFUN_OUTPUT_DIR unset the destination is this directory,
-        # so source and target are the same file and there is nothing to
-        # copy; still verify the hash below.
-        shutil.copyfile(SOURCE, target)
-    # Never hand the grader a truncated copy: the published file must
-    # hash exactly like the poster shipped in this repository.
-    source_hash = _sha256(SOURCE)
-    if _sha256(target) != source_hash:
-        target.unlink(missing_ok=True)
-        raise SystemExit("poster copy failed verification")
-    print(f"Wrote {target}  {target.stat().st_size} bytes  sha256={source_hash}")
+def _place_poster():
+    folder = _os.path.dirname(_os.path.abspath(__file__))
+    source = _os.path.join(folder, _POSTER)
+    try:
+        image = _read_all(source)
+    except OSError:
+        raise SystemExit("poster missing: " + source)
+    out = _os.environ.get("MAKEFUN_OUTPUT_DIR") or folder
+    _os.makedirs(out, exist_ok=True)
+    target = _os.path.join(out, _POSTER)
+    # When no output directory is given the target is the poster itself,
+    # so there is nothing to copy; the hash check below still runs.
+    same = _os.path.abspath(target) == _os.path.abspath(source)
+    if not same:
+        with open(target, "wb") as handle:
+            handle.write(image)
+    placed = _read_all(target)
+    if _digest(placed).hexdigest() != _digest(image).hexdigest():
+        _os.unlink(target)
+        raise SystemExit("poster copy failed verification: " + target)
+    print("Wrote " + target + "  " + str(len(placed)) + " bytes  sha256="
+          + _digest(image).hexdigest())
 
 
-if __name__ == "__main__":
-    main()
+if __name__.startswith("__main__"):
+    _place_poster()
